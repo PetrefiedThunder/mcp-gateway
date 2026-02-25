@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { RequestTracker, Logger } from "../middleware.js";
+import { RequestTracker, Logger } from "../request.js";
 
 describe("RequestTracker", () => {
   it("tracks active requests", () => {

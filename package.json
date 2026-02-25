@@ -2,7 +2,7 @@
   "name": "mcp-gateway",
   "version": "1.0.0",
   "description": "Enterprise infrastructure layer for MCP \u2014 auth, RBAC, audit, rate limiting, metering, secrets",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -41,11 +41,24 @@
   },
   "bin": {
     "mcp-gateway": "./dist/cli.js",
-    "mcp-gateway-serve": "./dist/index.js",
-    "mcp-gateway-http": "./dist/serve.js"
+    "mcp-gateway-serve": "./dist/serve.js",
+    "mcp-gateway-stdio": "./dist/index.js"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/PetrefiedThunder/mcp-gateway"
+  },
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "gateway.example.yaml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
