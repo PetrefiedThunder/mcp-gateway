@@ -1,0 +1,95 @@
+# MCP Gateway Configuration
+# Copy to gateway.yaml and customize
+
+auth:
+  type: api-key
+  keys:
+    - id: key-1
+      key: gw_abc123def456  # In production, use hashed keys
+      name: "Production Agent"
+      consumerId: agent-prod
+      roles: [reader, writer]
+      enabled: true
+    - id: key-2
+      key: gw_readonly789
+      name: "Read-Only Agent"
+      consumerId: agent-readonly
+      roles: [reader]
+      enabled: true
+
+servers:
+  - id: mcp-fred
+    name: "Federal Reserve Economic Data"
+    command: node
+    args: ["../mcp-fred/dist/index.js"]
+    tags: [finance, government, free]
+    enabled: true
+    timeout: 30000
+
+  - id: mcp-pubmed
+    name: "PubMed Medical Literature"
+    command: node
+    args: ["../mcp-pubmed/dist/index.js"]
+    tags: [healthcare, research, free]
+    enabled: true
+
+  - id: mcp-stripe
+    name: "Stripe Payments"
+    command: node
+    args: ["../mcp-stripe/dist/index.js"]
+    env:
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"  # Injected from environment
+    tags: [payments, premium]
+    enabled: true
+    timeout: 15000
+
+policies:
+  - id: reader-policy
+    name: "Read-only access"
+    roles: [reader]
+    rules:
+      - tool: "search_*"
+        action: allow
+      - tool: "get_*"
+        action: allow
+      - tool: "list_*"
+        action: allow
+      - tool: "*"
+        action: deny  # deny everything else
+
+  - id: writer-policy
+    name: "Full access"
+    roles: [writer]
+    rules:
+      - action: allow  # allow everything
+
+  - id: stripe-restrict
+    name: "Stripe restrictions"
+    roles: [writer]
+    rules:
+      - server: mcp-stripe
+        tool: "create_*"
+        action: allow
+      - server: mcp-stripe
+        tool: "list_*"
+        action: allow
+      - server: mcp-stripe
+        tool: "get_*"
+        action: allow
+
+audit:
+  enabled: true
+  storage: sqlite
+  path: ./gateway-audit.db
+  retentionDays: 90
+  hashChain: true
+
+metering:
+  enabled: true
+  dimensions: [calls, latency, errors]
+  flushIntervalMs: 60000
+
+rateLimit:
+  enabled: true
+  defaultPerMinute: 60
+  burstMultiplier: 2

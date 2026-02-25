@@ -1,0 +1,50 @@
+{
+  "name": "mcp-gateway",
+  "version": "1.0.0",
+  "description": "Enterprise infrastructure layer for MCP \u2014 auth, RBAC, audit, rate limiting, metering, secrets",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "start": "node dist/index.js",
+    "cli": "node dist/cli.js"
+  },
+  "keywords": [
+    "mcp",
+    "gateway",
+    "enterprise",
+    "auth",
+    "rbac",
+    "audit",
+    "rate-limiting",
+    "metering",
+    "model-context-protocol"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "better-sqlite3": "^12.6.2",
+    "jsonwebtoken": "^9.0.3",
+    "uuid": "^13.0.0",
+    "yaml": "^2.8.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.3.0",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "bin": {
+    "mcp-gateway": "./dist/cli.js",
+    "mcp-gateway-serve": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PetrefiedThunder/mcp-gateway"
+  }
+}
