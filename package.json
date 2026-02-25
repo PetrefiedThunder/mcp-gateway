@@ -41,7 +41,8 @@
   },
   "bin": {
     "mcp-gateway": "./dist/cli.js",
-    "mcp-gateway-serve": "./dist/index.js"
+    "mcp-gateway-serve": "./dist/index.js",
+    "mcp-gateway-http": "./dist/serve.js"
   },
   "repository": {
     "type": "git",
