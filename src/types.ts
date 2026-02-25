@@ -12,9 +12,10 @@ export interface GatewayConfig {
 }
 
 export interface AuthConfig {
-  type: "api-key" | "jwt" | "none";
+  type: "api-key" | "jwt" | "oidc" | "none";
   keys?: ApiKeyConfig[];
   jwt?: JwtConfig;
+  oidc?: OidcConfig;
 }
 
 export interface ApiKeyConfig {
@@ -33,6 +34,18 @@ export interface JwtConfig {
   publicKey?: string;
   issuer?: string;
   audience?: string;
+  rolesField?: string;       // JWT claim containing roles (default: "roles")
+  consumerIdField?: string;  // JWT claim containing consumer ID (default: "sub")
+}
+
+export interface OidcConfig {
+  issuerUrl: string;          // e.g. https://accounts.google.com
+  clientId: string;
+  audience?: string;
+  rolesField?: string;        // claim in ID token with roles
+  consumerIdField?: string;   // claim for consumer identity
+  jwksUri?: string;           // auto-discovered if not set
+  allowedDomains?: string[];  // restrict to email domains
 }
 
 export interface ServerConfig {
@@ -76,6 +89,15 @@ export interface AuditConfig {
   webhookUrl?: string;
   retentionDays?: number;
   hashChain?: boolean;    // tamper-evident
+  export?: AuditExportConfig;
+}
+
+export interface AuditExportConfig {
+  type: "s3" | "webhook" | "file";
+  destination: string;    // S3 bucket, webhook URL, or file path
+  format: "jsonl" | "csv";
+  intervalMs?: number;    // export frequency
+  batchSize?: number;     // entries per export
 }
 
 export interface MeteringConfig {
@@ -123,4 +145,6 @@ export interface ConsumerContext {
   apiKeyId: string;
   roles: string[];
   rateLimit?: number;
+  email?: string;
+  metadata?: Record<string, any>;
 }

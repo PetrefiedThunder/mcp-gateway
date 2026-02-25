@@ -155,4 +155,41 @@ export class ServerRegistry {
     this.stopServer(id);
     this.servers.delete(id);
   }
+
+  /**
+   * Auto-restart crashed servers. Call periodically.
+   */
+  async healthCheck(): Promise<{ id: string; status: string; restarted: boolean }[]> {
+    const results: { id: string; status: string; restarted: boolean }[] = [];
+
+    for (const [id, server] of this.servers) {
+      if (!server.config.enabled) continue;
+
+      if (server.status === "error" || (server.status === "stopped" && server.config.enabled)) {
+        if (server.restarts < 5) {
+          try {
+            server.restarts++;
+            await this.startServer(id);
+            results.push({ id, status: "restarted", restarted: true });
+          } catch {
+            results.push({ id, status: "restart-failed", restarted: false });
+          }
+        } else {
+          results.push({ id, status: "max-restarts-exceeded", restarted: false });
+        }
+      } else {
+        results.push({ id, status: server.status, restarted: false });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Reset restart counter (call after successful health check period).
+   */
+  resetRestarts(id: string) {
+    const server = this.servers.get(id);
+    if (server) server.restarts = 0;
+  }
 }
