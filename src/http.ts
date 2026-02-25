@@ -22,15 +22,29 @@
 
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { Gateway } from "./gateway.js";
+import { Metrics } from "./metrics.js";
+import { IpFilter } from "./ipfilter.js";
+import { generateOpenApiSpec } from "./openapi.js";
 import type { GatewayConfig, ConsumerContext } from "./types.js";
 
 export function createHttpServer(gateway: Gateway, config: GatewayConfig) {
+  const metrics = new Metrics();
+  const ipFilter = new IpFilter((config as any).ipFilter || { enabled: false, mode: "allowlist", ips: [] });
+
   const server = createServer(async (req, res) => {
     // CORS
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    const corsOrigin = (config as any).cors?.origin || "*";
+    res.setHeader("Access-Control-Allow-Origin", corsOrigin);
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key");
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+
+    // IP filtering
+    const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "";
+    if (!ipFilter.check(clientIp.replace("::ffff:", ""))) {
+      metrics.increment("mcp_gateway_ip_blocked_total");
+      return json(res, 403, { error: "IP not allowed" });
+    }
 
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     const path = url.pathname;
@@ -41,6 +55,19 @@ export function createHttpServer(gateway: Gateway, config: GatewayConfig) {
                    url.searchParams.get("api_key") || undefined;
 
     try {
+      // Prometheus metrics (no auth)
+      if (path === "/metrics") {
+        metrics.setActiveServers(gateway.getRegisteredServers().filter((s) => s.status === "running").length);
+        res.writeHead(200, { "Content-Type": "text/plain; version=0.0.4" });
+        res.end(metrics.render());
+        return;
+      }
+
+      // OpenAPI spec (no auth)
+      if (path === "/openapi.json") {
+        return json(res, 200, generateOpenApiSpec());
+      }
+
       // Health check (no auth)
       if (path === "/api/health") {
         return json(res, 200, {
@@ -57,7 +84,10 @@ export function createHttpServer(gateway: Gateway, config: GatewayConfig) {
         const rpc = JSON.parse(body);
         
         const ctx = gateway.authenticate(apiKey);
-        if (!ctx) return json(res, 401, { error: "Authentication required" });
+        if (!ctx) {
+          metrics.recordAuthFailure();
+          return json(res, 401, { error: "Authentication required" });
+        }
 
         if (rpc.method === "initialize") {
           return json(res, 200, {
@@ -80,16 +110,24 @@ export function createHttpServer(gateway: Gateway, config: GatewayConfig) {
 
         if (rpc.method === "tools/call") {
           const { name, arguments: args } = rpc.params;
+          const callStart = Date.now();
           const result = await gateway.callTool(ctx, name, args || {});
+          const latency = Date.now() - callStart;
+
           if (result.denied) {
+            metrics.recordCall("unknown", name, "denied", latency);
             return json(res, 403, { jsonrpc: "2.0", id: rpc.id, error: { code: -32600, message: result.error } });
           }
           if (result.rateLimited) {
+            metrics.recordRateLimit();
+            metrics.recordCall("unknown", name, "rate_limited", latency);
             return json(res, 429, { jsonrpc: "2.0", id: rpc.id, error: { code: -32600, message: "Rate limit exceeded" } });
           }
           if (result.error) {
+            metrics.recordCall("unknown", name, "error", latency);
             return json(res, 200, { jsonrpc: "2.0", id: rpc.id, error: { code: -32603, message: result.error } });
           }
+          metrics.recordCall("unknown", name, "success", latency);
           return json(res, 200, { jsonrpc: "2.0", id: rpc.id, result: result.result });
         }
 

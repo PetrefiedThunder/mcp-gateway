@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  gateway:
+    build: .
+    ports:
+      - "3100:3100"
+    environment:
+      MCP_GATEWAY_PORT: "3100"
+      MCP_GATEWAY_CONFIG: "/app/gateway.yaml"
+      DATABASE_URL: "postgresql://gateway:gateway@postgres:5432/gateway"
+    volumes:
+      - ./gateway.yaml:/app/gateway.yaml:ro
+      - audit-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: gateway
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - gateway
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - prometheus
+
+volumes:
+  pg-data:
+  audit-data:
