@@ -193,17 +193,65 @@ The gateway itself is an MCP server. Connect to it and use these tools:
 
 ```
 src/
-├── index.ts          # MCP server entry point
+├── index.ts          # MCP server entry point (stdio transport)
+├── serve.ts          # HTTP server entry point (network transport)
 ├── cli.ts            # CLI management tool
-├── gateway.ts        # Core orchestrator
-├── auth.ts           # API key / JWT authentication
+├── gateway.ts        # Core orchestrator — auth → policy → audit → meter → proxy
+├── auth.ts           # API key + JWT + OIDC authentication
 ├── policy.ts         # RBAC policy engine (glob matching, conditions)
-├── audit.ts          # SQLite audit log with hash chain
-├── ratelimit.ts      # Token bucket rate limiter
+├── audit.ts          # SQLite/Postgres audit log with hash chain
+├── storage.ts        # Storage abstraction (SQLite embedded, PostgreSQL)
+├── ratelimit.ts      # Token bucket rate limiter with burst
 ├── meter.ts          # Usage metering and aggregation
-├── registry.ts       # Server lifecycle management
+├── metrics.ts        # Prometheus /metrics endpoint
+├── registry.ts       # Server lifecycle management + auto-restart
 ├── proxy.ts          # MCP JSON-RPC proxy (stdio)
+├── redact.ts         # PII redaction (SSN, credit card, field-level)
+├── ipfilter.ts       # IP allowlist/denylist (CIDR, wildcard)
+├── tenant.ts         # Multi-tenant workspace isolation
+├── export.ts         # Audit export (JSONL, CSV, webhook, S3)
+├── config.ts         # YAML config loader + validation + hot-reload
+├── middleware.ts      # Request tracking, timeouts, structured logging
+├── openapi.ts        # OpenAPI 3.1 spec generation
 └── types.ts          # TypeScript domain types
+```
+
+## Production Deployment
+
+```bash
+# Docker Compose (Gateway + Postgres + Prometheus + Grafana)
+docker-compose up -d
+
+# Access:
+# Gateway:     http://localhost:3100
+# Prometheus:  http://localhost:9090
+# Grafana:     http://localhost:3000 (admin/admin)
+# Metrics:     http://localhost:3100/metrics
+# OpenAPI:     http://localhost:3100/openapi.json
+```
+
+## Compliance
+
+- **HIPAA**: PII redaction, tamper-evident audit log, field-level access control
+- **SOC 2**: Complete audit trail, RBAC, rate limiting, IP filtering
+- **PCI-DSS**: Credit card redaction, API key rotation, network controls
+- **GDPR**: Per-tenant data isolation, audit export for data requests
+
+## 58 Tests
+
+```
+ ✓ auth.test.ts       (6 tests)   — API key auth, disabled/expired keys
+ ✓ auth-jwt.test.ts   (5 tests)   — JWT verification, claims, issuer
+ ✓ policy.test.ts     (6 tests)   — RBAC, glob matching, deny precedence
+ ✓ ratelimit.test.ts  (6 tests)   — token bucket, burst, isolation
+ ✓ audit.test.ts      (3 tests)   — log, query, hash chain verify
+ ✓ meter.test.ts      (4 tests)   — usage tracking, isolation
+ ✓ storage.test.ts    (4 tests)   — SQLite insert, query, upsert, stats
+ ✓ config.test.ts     (5 tests)   — validation, duplicates, missing fields
+ ✓ redact.test.ts     (7 tests)   — SSN, CC, email, field-level, per-server
+ ✓ ipfilter.test.ts   (5 tests)   — allowlist, denylist, CIDR, wildcard
+ ✓ metrics.test.ts    (3 tests)   — Prometheus format, counters, histograms
+ ✓ middleware.test.ts  (4 tests)   — request tracking, timeout, drain
 ```
 
 ## License
